@@ -3,15 +3,19 @@ infused dungeon crawl.
 
 Features:
 
-WSAD for movement, bump attacking (walk into enemies), press E to use stairs, G to pickup items.
+30 Levels of dungeon crawling, unique level colors for the first 25 levels, the final 5 levels are a boss run.
 
-Line of sight and fog of war, dynamic dungeons with hazards.
+WSAD for movement, bump attacking (walk into enemies), press E to use stairs, G to pickup items, P to see message log.
+
+Line of sight and fog of war, dynamic dungeons with hazards, the player's color changes depending on health.
 
 Gold can be collected from fallen foes, and can be used to buy stat points or used in shops that appear every few levels.
 
 Gold is the only item kept if the player is defeated.
 
 Various feline themed items can be found during play, collars that act as armor, various items to aid in ranged attacks.
+
+Mystery items can be picked up, take a chance on what their effect is when consumed.
 
 Requirements:
 
