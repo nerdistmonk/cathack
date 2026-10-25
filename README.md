@@ -23,3 +23,10 @@ GCC/Cmake/Ncurses, tested against Arch Linux 64bit but I would imagine it should
 Like quite a few other projects on here, my co-developer is Gemini 3.6, despite how others may feel about AI, I am grateful
 to finally be able to design a game of my own, and do understand that everything on here has been tested by a human, no rush
 job sloppiness.
+
+Build Instructions:
+
+mkdir build
+cd build
+cmake ..
+make
