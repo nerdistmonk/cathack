@@ -125,6 +125,7 @@ extern MysteryEffect mystery_effects[MYSTERY_COUNT];
 extern const char *MYSTERY_NAMES[MYSTERY_COUNT];
 
 // Function Prototypes
+void show_title_screen(void);
 void add_log(const char *fmt, ...);
 void open_log_history(void);
 void load_meta(void);

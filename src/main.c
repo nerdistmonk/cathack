@@ -11,15 +11,16 @@ int main(void) {
 
     if (has_colors()) {
         start_color();
-        init_pair(1, COLOR_YELLOW, COLOR_BLACK);  // Gold / Player (Caution) / Merchant
+        init_pair(1, COLOR_YELLOW, COLOR_BLACK);  // Gold / Player (Caution) / Merchant / Cat Logo
         init_pair(2, COLOR_GREEN, COLOR_BLACK);   // Food / Treats / Litter
         init_pair(3, COLOR_RED, COLOR_BLACK);     // Weapons / Stray / Player (Critical)
         init_pair(4, COLOR_MAGENTA, COLOR_BLACK); // Boss / Panthers
-        init_pair(5, COLOR_CYAN, COLOR_BLACK);    // Water / Ranged Spitters
-        init_pair(6, COLOR_WHITE, COLOR_BLACK);   // Player (Healthy) / Walls
+        init_pair(5, COLOR_CYAN, COLOR_BLACK);    // Water / Ranged Spitters / Subtitle
+        init_pair(6, COLOR_WHITE, COLOR_BLACK);   // Player (Healthy) / Title / Walls
     }
 
     load_meta();
+    show_title_screen();
 
     while (true) {
         open_stat_shop();
