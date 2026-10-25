@@ -9,6 +9,18 @@ Enemy enemies[MAX_ENEMIES];
 int enemy_count = 0;
 int stairs_x, stairs_y;
 
+int get_floor_color_pair(int depth) {
+    if (depth >= BOSS_START_DEPTH) return 4; // Boss Run: Magenta
+    switch ((depth - 1) % 5) {
+        case 0: return 6; // Floor 1-5: White
+        case 1: return 2; // Floor 6-10: Green
+        case 2: return 5; // Floor 11-15: Cyan
+        case 3: return 1; // Floor 16-20: Yellow
+        case 4: return 3; // Floor 21-25: Red
+        default: return 6;
+    }
+}
+
 static void cast_ray(int x0, int y0, int x1, int y1) {
     int dx = abs(x1 - x0), dy = abs(y1 - y0);
     int sx = (x0 < x1) ? 1 : -1;
@@ -116,18 +128,38 @@ void generate_dungeon(void) {
     stairs_y = rooms[room_count - 1].y + rooms[room_count - 1].h / 2;
     map[stairs_y][stairs_x] = '>';
 
+    // Environmental Hazards
     for (int r = 1; r < room_count; r++) {
         if (rand() % 2 == 0) {
             int hx = rooms[r].x + 2 + rand() % (rooms[r].w - 3);
             int hy = rooms[r].y + 2 + rand() % (rooms[r].h - 3);
-            map[hy][hx] = (rand() % 2 == 0) ? '=' : '^';
+            if (hx != stairs_x || hy != stairs_y) {
+                map[hy][hx] = (rand() % 2 == 0) ? '=' : '^';
+            }
         }
     }
 
     enemy_count = 0;
     int depth = player.dungeon_depth;
 
-    if (depth % 3 == 0 && room_count > 2) {
+    // Floor 30 Final Boss Spawn
+    if (depth == MAX_DEPTH) {
+        Enemy *boss = &enemies[enemy_count++];
+        boss->x = rooms[room_count - 1].x + rooms[room_count - 1].w / 2 - 1;
+        boss->y = rooms[room_count - 1].y + rooms[room_count - 1].h / 2;
+        boss->alive = true;
+        boss->ai = AI_FINAL_BOSS;
+        boss->symbol = 'K';
+        boss->color_pair = 4;
+        snprintf(boss->name, sizeof(boss->name), "The Stray King");
+        boss->hp = boss->max_hp = 250;
+        boss->atk = 22;
+        boss->def = 12;
+        boss->sleep_turns = 0;
+    }
+
+    // Merchant on depths 3, 6, 9...
+    if (depth % 3 == 0 && depth < BOSS_START_DEPTH && room_count > 2) {
         Enemy *m = &enemies[enemy_count++];
         m->x = rooms[1].x + rooms[1].w / 2;
         m->y = rooms[1].y + rooms[1].h / 2;
@@ -136,12 +168,13 @@ void generate_dungeon(void) {
         m->symbol = 'M';
         m->color_pair = 1;
         snprintf(m->name, sizeof(m->name), "Alley Merchant");
-        m->hp = m->max_hp = 100;
-        m->atk = 20;
-        m->def = 10;
+        m->hp = m->max_hp = 120;
+        m->atk = 22;
+        m->def = 12;
         m->sleep_turns = 0;
     }
 
+    // Spawn Mobs (Balanced Stat Curve)
     for (int r = 1; r < room_count; r++) {
         int rx = rooms[r].x + 1 + rand() % (rooms[r].w - 2);
         int ry = rooms[r].y + 1 + rand() % (rooms[r].h - 2);
@@ -153,58 +186,75 @@ void generate_dungeon(void) {
             e->alive = true;
             e->sleep_turns = 0;
 
-            int type = rand() % 4;
-            if (type == 0) {
-                snprintf(e->name, sizeof(e->name), "Stray Cat");
-                e->symbol = 'c';
-                e->color_pair = 3;
-                e->ai = AI_COWARD;
-                e->hp = e->max_hp = 4 + depth * 2;
-                e->atk = 2 + depth * 1;
-                e->def = 0 + depth;
-            } else if (type == 1) {
-                snprintf(e->name, sizeof(e->name), "Spitting Tomcat");
-                e->symbol = 's';
-                e->color_pair = 5;
-                e->ai = AI_RANGED;
-                e->hp = e->max_hp = 6 + depth * 2;
-                e->atk = 3 + depth * 1;
-                e->def = 0 + depth;
-            } else if (type == 2) {
-                snprintf(e->name, sizeof(e->name), "Feral Alley-Cat");
-                e->symbol = 'C';
-                e->color_pair = 1;
-                e->ai = AI_PACK_HUNTER;
-                e->hp = e->max_hp = 8 + depth * 3;
-                e->atk = 3 + depth * 2;
-                e->def = 1 + depth;
-            } else {
-                snprintf(e->name, sizeof(e->name), "Dungeon Panther");
+            if (depth >= BOSS_START_DEPTH) {
+                // Royal Guards (Floors 26-30)
+                snprintf(e->name, sizeof(e->name), "Royal Panther Guard");
                 e->symbol = 'P';
                 e->color_pair = 4;
-                e->ai = AI_MELEE;
-                e->hp = e->max_hp = 12 + depth * 4;
-                e->atk = 5 + depth * 2;
-                e->def = 2 + depth;
+                e->ai = AI_PACK_HUNTER;
+                e->hp = e->max_hp = 35 + depth * 2;
+                e->atk = 12 + (int)(depth * 0.5);
+                e->def = 4 + depth / 3;
+            } else {
+                int type = rand() % 4;
+                if (type == 0) { // Cowardly Stray Cat
+                    snprintf(e->name, sizeof(e->name), "Stray Cat");
+                    e->symbol = 'c';
+                    e->color_pair = 3;
+                    e->ai = AI_COWARD;
+                    e->hp = e->max_hp = 5 + depth * 2;
+                    e->atk = 2 + (int)(depth * 0.6);
+                    e->def = depth / 4;
+                } else if (type == 1) { // Ranged Spitter
+                    snprintf(e->name, sizeof(e->name), "Spitting Tomcat");
+                    e->symbol = 's';
+                    e->color_pair = 5;
+                    e->ai = AI_RANGED;
+                    e->hp = e->max_hp = 8 + depth * 2;
+                    e->atk = 3 + (int)(depth * 0.7);
+                    e->def = depth / 4;
+                } else if (type == 2) { // Pack Hunter Alley Cat
+                    snprintf(e->name, sizeof(e->name), "Feral Alley-Cat");
+                    e->symbol = 'C';
+                    e->color_pair = 1;
+                    e->ai = AI_PACK_HUNTER;
+                    e->hp = e->max_hp = 10 + depth * 3;
+                    e->atk = 4 + (int)(depth * 0.8);
+                    e->def = 1 + depth / 3;
+                } else { // Dungeon Panther
+                    snprintf(e->name, sizeof(e->name), "Dungeon Panther");
+                    e->symbol = 'P';
+                    e->color_pair = 4;
+                    e->ai = AI_MELEE;
+                    e->hp = e->max_hp = 15 + depth * 3;
+                    e->atk = 6 + (int)(depth * 1.0);
+                    e->def = 2 + depth / 3;
+                }
             }
         }
 
+        // Floor Items (Healing items now scale with depth)
         if (rand() % 2 == 0) {
             int ix = rooms[r].x + 1 + rand() % (rooms[r].w - 2);
             int iy = rooms[r].y + 1 + rand() % (rooms[r].h - 2);
-            if (map[iy][ix] == '.') {
+
+            if ((ix != stairs_x || iy != stairs_y) && map[iy][ix] == '.') {
                 has_item_map[iy][ix] = true;
-                int itype = rand() % 5;
+                int itype = rand() % 6;
                 if (itype == 0) {
-                    item_map[iy][ix] = (Item){ITEM_FOOD, "Can of Tuna", 10 + depth * 2, 0, '%', 2};
+                    item_map[iy][ix] = (Item){ITEM_FOOD, "Can of Tuna", 15 + depth * 3, 0, '%', 2, -1};
                 } else if (itype == 1) {
-                    item_map[iy][ix] = (Item){ITEM_DRINK, "Bowl of Milk", 15 + depth * 3, 0, '!', 5};
+                    item_map[iy][ix] = (Item){ITEM_DRINK, "Bowl of Milk", 25 + depth * 5, 0, '!', 5, -1};
                 } else if (itype == 2) {
-                    item_map[iy][ix] = (Item){ITEM_YARN_BALL, "Yarn Ball", 8 + depth * 3, 0, '*', 1};
+                    item_map[iy][ix] = (Item){ITEM_YARN_BALL, "Yarn Ball", 10 + depth * 3, 0, '*', 1, -1};
                 } else if (itype == 3) {
-                    item_map[iy][ix] = (Item){ITEM_CATNIP_BOMB, "Catnip Bomb", 5, 0, '&', 2};
+                    item_map[iy][ix] = (Item){ITEM_CATNIP_BOMB, "Catnip Bomb", 5, 0, '&', 2, -1};
+                } else if (itype == 4) {
+                    int m_id = rand() % MYSTERY_COUNT;
+                    item_map[iy][ix] = (Item){ITEM_MYSTERY, "", 0, 0, '?', 3, m_id};
+                    snprintf(item_map[iy][ix].name, 32, "%s", MYSTERY_NAMES[m_id]);
                 } else {
-                    item_map[iy][ix] = (Item){ITEM_GOLD, "Gold Coins", 15 + depth * 15, 0, '$', 1};
+                    item_map[iy][ix] = (Item){ITEM_GOLD, "Gold Coins", 15 + depth * 20, 0, '$', 1, -1};
                 }
             }
         }

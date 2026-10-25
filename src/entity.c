@@ -13,6 +13,11 @@ void reset_player_for_run(void) {
     player.has_weapon = false;
     player.has_armor = false;
     player.slowed_turns = 0;
+
+    log_count = 0;
+    add_log("Welcome to CatHack! Press WASD to move/attack, [p] for log.");
+
+    init_mystery_items();
     generate_dungeon();
 }
 
@@ -24,27 +29,27 @@ static void spawn_dropped_loot(int x, int y, int depth) {
 
     if (roll < 45) {
         int amount = 15 + depth * 20 + (rand() % 15);
-        item_map[y][x] = (Item){ITEM_GOLD, "Shiny Gold", amount, 0, '$', 1};
+        item_map[y][x] = (Item){ITEM_GOLD, "Shiny Gold", amount, 0, '$', 1, -1};
     } else if (roll < 70) {
         char wpn_name[32];
         int bonus = 2 + depth * 2;
         snprintf(wpn_name, sizeof(wpn_name), "Claw Ring +%d", bonus);
-        item_map[y][x] = (Item){ITEM_WEAPON, "", bonus, 0, '(', 3};
+        item_map[y][x] = (Item){ITEM_WEAPON, "", bonus, 0, '(', 3, -1};
         snprintf(item_map[y][x].name, sizeof(item_map[y][x].name), "%s", wpn_name);
     } else if (roll < 90) {
         char arm_name[32];
         int bonus = 1 + depth * 2;
         snprintf(arm_name, sizeof(arm_name), "Leather Collar +%d", bonus);
-        item_map[y][x] = (Item){ITEM_ARMOR, "", bonus, 0, '[', 5};
+        item_map[y][x] = (Item){ITEM_ARMOR, "", bonus, 0, '[', 5, -1};
         snprintf(item_map[y][x].name, sizeof(item_map[y][x].name), "%s", arm_name);
     } else {
-        item_map[y][x] = (Item){ITEM_YARN_BALL, "Yarn Ball", 10 + depth * 2, 0, '*', 1};
+        item_map[y][x] = (Item){ITEM_YARN_BALL, "Yarn Ball", 10 + depth * 2, 0, '*', 1, -1};
     }
 }
 
 void bump_attack(Enemy *e) {
     if (e->ai == AI_MERCHANT) {
-        set_log("You hit the Alley Merchant! He turns hostile!");
+        add_log("You hit the Alley Merchant! He turns hostile!");
     }
 
     int total_atk = player.atk + (player.has_weapon ? player.equipped_weapon.value : 0);
@@ -56,10 +61,10 @@ void bump_attack(Enemy *e) {
 
     if (e->hp <= 0) {
         e->alive = false;
-        set_log("You hit %s for %d dmg and defeated it!", e->name, damage);
+        add_log("You hit %s for %d dmg and defeated it!", e->name, damage);
         spawn_dropped_loot(e->x, e->y, player.dungeon_depth);
     } else {
-        set_log("You hit %s for %d dmg.", e->name, damage);
+        add_log("You hit %s for %d dmg.", e->name, damage);
     }
 }
 
@@ -92,13 +97,13 @@ void enemy_turn(void) {
                 int damage = (e->atk + bonus_atk) - total_def;
                 if (damage < 1) damage = 1;
                 player.hp -= damage;
-                set_log("%s attacks you for %d damage!", e->name, damage);
+                add_log("%s attacks you for %d damage!", e->name, damage);
 
             } else if (e->ai == AI_RANGED && dx <= 4 && dy <= 4) {
                 int damage = e->atk - (player.has_armor ? player.equipped_armor.value : 0);
                 if (damage < 1) damage = 1;
                 player.hp -= damage;
-                set_log("%s spits a hairball at you for %d dmg!", e->name, damage);
+                add_log("%s spits a hairball at you for %d dmg!", e->name, damage);
 
             } else {
                 int mx = 0, my = 0;
@@ -125,7 +130,7 @@ void enemy_turn(void) {
 void move_player(int dx, int dy) {
     if (player.slowed_turns > 0) {
         player.slowed_turns--;
-        set_log("Stuck in cat litter! (1 turn penalty remaining)");
+        add_log("Stuck in cat litter! (1 turn penalty remaining)");
         enemy_turn();
         return;
     }
@@ -151,14 +156,14 @@ void move_player(int dx, int dy) {
         player.y = ny;
 
         if (tile == '=') {
-            set_log("Slipped on a water puddle!");
+            add_log("Slipped on a water puddle!");
             int sx = nx + dx, sy = ny + dy;
             if (map[sy][sx] == '.' || map[sy][sx] == '>') {
                 player.x = sx;
                 player.y = sy;
             }
         } else if (tile == '^') {
-            set_log("Stepped into sticky cat litter! Slowed down.");
+            add_log("Stepped into sticky cat litter! Slowed down.");
             player.slowed_turns = 1;
         }
 
@@ -166,10 +171,10 @@ void move_player(int dx, int dy) {
             Item *item = &item_map[player.y][player.x];
             if (item->type == ITEM_GOLD) {
                 player.gold += item->value;
-                set_log("Picked up %d Gold Coins!", item->value);
+                add_log("Picked up %d Gold Coins!", item->value);
                 has_item_map[player.y][player.x] = false;
             } else {
-                set_log("Standing on %s. Press 'g' to pick up.", item->name);
+                add_log("Standing on %s. Press 'g' to pick up.", item->name);
             }
         }
 
@@ -189,7 +194,7 @@ void throw_item(void) {
     }
 
     if (throw_idx == -1) {
-        set_log("No throwables (Yarn Ball / Catnip Bomb) in inventory!");
+        add_log("No throwables (Yarn Ball / Catnip Bomb) in inventory!");
         return;
     }
 
@@ -213,7 +218,7 @@ void throw_item(void) {
     }
 
     if (target_idx == -1) {
-        set_log("No visible targets to throw at!");
+        add_log("No visible targets to throw at!");
         return;
     }
 
@@ -222,7 +227,7 @@ void throw_item(void) {
     if (item.type == ITEM_YARN_BALL) {
         target->hp -= item.value;
         target->sleep_turns = 0;
-        set_log("Threw Yarn Ball at %s for %d damage!", target->name, item.value);
+        add_log("Threw Yarn Ball at %s for %d damage!", target->name, item.value);
         if (target->hp <= 0) {
             target->alive = false;
             spawn_dropped_loot(target->x, target->y, player.dungeon_depth);
@@ -235,7 +240,7 @@ void throw_item(void) {
                 enemies[i].sleep_turns = item.value;
             }
         }
-        set_log("Catnip Bomb exploded! Nearby enemies fell asleep!");
+        add_log("Catnip Bomb exploded! Nearby enemies fell asleep!");
     }
 
     enemy_turn();
